@@ -12,8 +12,8 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 ASAAS_API_KEY = os.getenv("ASAAS_API_KEY")
 ASAAS_URL = os.getenv("ASAAS_URL", "https://sandbox.asaas.com/api/v3")
 
-# Banco de dados SQLite (funciona no Windows e Linux)
-DB_PATH = "pagamentos.db"
+# Banco de dados SQLite
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pagamentos.db")
 
 app = Flask(__name__)
 bot = Bot(token=TELEGRAM_TOKEN)
@@ -30,16 +30,14 @@ def init_db():
 
 init_db()
 
-# ============ COMANDO /START ============
+# ============ COMANDOS TELEGRAM ============
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Bem-vindo ao *Jarvis Bot*!\n\n"
-        "🛒 Use /comprar para adquirir o E-book Premium por R$ 29,90\n\n"
-        "💡 O pagamento é via PIX e a liberação é automática!",
+        "🛒 Use /comprar para adquirir o E-book Premium por R$ 29,90",
         parse_mode="Markdown"
     )
 
-# ============ COMANDO /COMPRAR ============
 async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user = update.effective_user
@@ -51,7 +49,6 @@ async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Content-Type": "application/json"
     }
     
-    # Cria cliente na Asaas
     cliente_data = {
         "name": user.full_name,
         "cpfCnpj": "52998224725",
@@ -63,10 +60,9 @@ async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cliente = r_cliente.json()
         
         if "id" not in cliente:
-            await update.message.reply_text(f"❌ Erro ao criar cliente: {cliente}")
+            await update.message.reply_text(f"❌ Erro cliente: {cliente}")
             return
         
-        # Cria cobrança PIX
         cobranca_data = {
             "customer": cliente["id"],
             "billingType": "PIX",
@@ -80,13 +76,11 @@ async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cobranca = r_cobranca.json()
         
         if "id" not in cobranca:
-            await update.message.reply_text(f"❌ Erro ao criar cobrança: {cobranca}")
+            await update.message.reply_text(f"❌ Erro cobrança: {cobranca}")
             return
         
-        # Gera token seguro para download
         token = secrets.token_urlsafe(16)
         
-        # Salva no banco
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute("INSERT INTO pagamentos (payment_id, chat_id, status, valor, token) VALUES (?, ?, ?, ?, ?)",
@@ -94,16 +88,13 @@ async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.commit()
         conn.close()
         
-        # Pega QR Code
         r_qr = requests.get(f"{ASAAS_URL}/payments/{cobranca['id']}/pixQrCode", headers=headers, timeout=10)
         qr = r_qr.json()
         
         mensagem = (
-            f"💰 *E-book Premium*\n"
-            f"Valor: R$ 29,90\n\n"
+            f"💰 *E-book Premium - R$ 29,90*\n\n"
             f"📋 *Copia e Cola:*\n`{qr['payload']}`\n\n"
-            f"⏰ Válido até 26/06/2026\n\n"
-            f"Após o pagamento, seu material será liberado automaticamente!"
+            f"Após pagamento, o conteúdo será liberado automaticamente!"
         )
         
         await update.message.reply_text(mensagem, parse_mode="Markdown")
@@ -111,7 +102,7 @@ async def comprar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Erro: {str(e)}")
 
-# ============ WEBHOOK ASAAS ============
+# ============ WEBHOOK ============
 @app.route("/webhook/asaas", methods=["POST"])
 def webhook_asaas():
     data = request.json
@@ -121,7 +112,6 @@ def webhook_asaas():
         payment_id = pagamento["id"]
         chat_id = pagamento.get("externalReference")
         
-        # Verifica se existe e está pendente
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute("SELECT status, token FROM pagamentos WHERE payment_id = ?", (payment_id,))
@@ -129,12 +119,9 @@ def webhook_asaas():
         
         if resultado and resultado[0] == "PENDING":
             token = resultado[1]
-            
-            # Atualiza status
             c.execute("UPDATE pagamentos SET status = ? WHERE payment_id = ?", ("RECEIVED", payment_id))
             conn.commit()
             
-            # Libera conteúdo
             if chat_id:
                 liberar_conteudo(chat_id, token)
         
@@ -143,17 +130,12 @@ def webhook_asaas():
     return "OK", 200
 
 def liberar_conteudo(chat_id, token):
-    """Envia o conteúdo pago para o usuário"""
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    
     texto = (
         "✅ *Pagamento confirmado!*\n\n"
-        "🎉 Aqui está seu E-book Premium:\n\n"
-        f"📥 [Clique aqui para baixar](https://seusite.com/download?token={token})\n\n"
-        "⏳ O link expira em 24 horas.\n\n"
-        "Obrigado pela compra! 🚀"
+        f"📥 [Baixar E-book](https://seusite.com/download?token={token})\n\n"
+        "⏳ Link expira em 24h."
     )
-    
     requests.post(url, json={
         "chat_id": chat_id,
         "text": texto,
@@ -161,7 +143,22 @@ def liberar_conteudo(chat_id, token):
         "disable_web_page_preview": True
     })
 
-# ============ RODAR O BOT ============
-if __name__ == "__main__":
+# ============ RODAR AMBOS ============
+def run_flask():
     port = int(os.getenv("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, use_reloader=False)
+
+def run_telegram():
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("comprar", comprar))
+    application.run_polling()
+
+if __name__ == "__main__":
+    # Roda Flask em thread separada
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+    
+    # Roda o bot do Telegram (principal)
+    run_telegram()
