@@ -19,6 +19,7 @@ bot = Bot(token=TELEGRAM_TOKEN)
 
 # ============ PRODUTOS ============
 PRODUTOS = {
+    "produto_teste": {"nome": "🧪 Pack de Teste", "preco": 1.00, "descricao": "Pack para testar o pagamento (1 real)"},
     "produto_1": {"nome": "Pack Básico", "preco": 30.00, "descricao": "Pack com 50 fotos"},
     "produto_2": {"nome": "Pack Premium", "preco": 40.00, "descricao": "Pack com 100 fotos + vídeos"},
     "produto_3": {"nome": "Pack VIP", "preco": 60.00, "descricao": "Pack completo + conteúdo exclusivo"},
