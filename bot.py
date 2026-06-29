@@ -20,12 +20,9 @@ bot = Bot(token=TELEGRAM_TOKEN)
 
 # ============ PRODUTOS ============
 PRODUTOS = {
-    "produto_teste": {"nome": "Pack de Teste", "preco": 1.00, "descricao": "Pack para testar o pagamento"},
-    "produto_1": {"nome": "Pack Basico", "preco": 30.00, "descricao": "Pack com 50 fotos"},
-    "produto_2": {"nome": "Pack Premium", "preco": 40.00, "descricao": "Pack com 100 fotos e videos"},
-    "produto_3": {"nome": "Pack VIP", "preco": 60.00, "descricao": "Pack completo com conteudo exclusivo"},
+    "produto_teste": {"nome": "Pack de Teste", "preco": 5.00, "descricao": "Pack para testar o pagamento"},
+    # ... outros produtos
 }
-
 # ============ FUNCAO PARA LIMPAR CARACTERES ============
 def limpar_texto(texto, max_length=100):
     if not texto:
