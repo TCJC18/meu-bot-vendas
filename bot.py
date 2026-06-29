@@ -17,12 +17,11 @@ DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pagamentos.d
 app = Flask(__name__)
 bot = Bot(token=TELEGRAM_TOKEN)
 
-# ============ PRODUTOS ============
 PRODUTOS = {
-    "produto_teste": {"nome": "🧪 Pack de Teste", "preco": 1.00, "descricao": "Pack para testar o pagamento (1 real)"},
-    "produto_1": {"nome": "Pack Básico", "preco": 30.00, "descricao": "Pack com 50 fotos"},
-    "produto_2": {"nome": "Pack Premium", "preco": 40.00, "descricao": "Pack com 100 fotos + vídeos"},
-    "produto_3": {"nome": "Pack VIP", "preco": 60.00, "descricao": "Pack completo + conteúdo exclusivo"},
+    "produto_teste": {"nome": "Pack de Teste", "preco": 1.00, "descricao": "Pack para testar o pagamento"},
+    "produto_1": {"nome": "Pack Basico", "preco": 30.00, "descricao": "Pack com 50 fotos"},
+    "produto_2": {"nome": "Pack Premium", "preco": 40.00, "descricao": "Pack com 100 fotos e videos"},
+    "produto_3": {"nome": "Pack VIP", "preco": 60.00, "descricao": "Pack completo com conteudo exclusivo"},
 }
 
 # ============ BANCO DE DADOS ============
