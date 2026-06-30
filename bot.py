@@ -3,8 +3,10 @@ import requests
 import sqlite3
 import secrets
 import re
+import io
+import base64
 from flask import Flask, request
-from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 import threading
 
@@ -20,8 +22,22 @@ bot = Bot(token=TELEGRAM_TOKEN)
 
 # ============ PRODUTOS ============
 PRODUTOS = {
-    "produto_teste": {"nome": "Pack de Teste", "preco": 5.00, "descricao": "Pack para testar o pagamento"},
-    # ... outros produtos
+    "pack_basico": {
+        "nome": "Pack Basico",
+        "preco": 30.00,
+        "descricao": "Pack com conteudo basico e exclusivo"
+    },
+    "pack_premium": {
+        "nome": "Pack Premium",
+        "preco": 80.00,
+        "descricao": "Pack completo com conteudo premium e bonus"
+    },
+    "pack_vip": {
+        "nome": "Pack VIP",
+        "preco": 110.00,
+        "descricao": "Pack VIP com todo conteudo + acesso exclusivo ao grupo"
+    },
+    
 }
 
 # ============ FUNCAO PARA LIMPAR CARACTERES ============
@@ -37,13 +53,11 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    # Cria a tabela se nao existir (com TODAS as colunas necessarias)
     c.execute("""CREATE TABLE IF NOT EXISTS pagamentos
                  (payment_id TEXT PRIMARY KEY, chat_id TEXT, status TEXT, 
                   valor REAL, token TEXT, produto TEXT, tipo TEXT,
                   criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
 
-    # Verifica se as colunas novas existem (para compatibilidade com bancos antigos)
     c.execute("PRAGMA table_info(pagamentos)")
     colunas = [col[1] for col in c.fetchall()]
 
@@ -242,15 +256,38 @@ async def gerar_pix(update: Update, context: ContextTypes.DEFAULT_TYPE):
         r_qr = requests.get(f"{ASAAS_URL}/payments/{cobranca['id']}/pixQrCode", headers=headers, timeout=10)
         qr = r_qr.json()
 
+        # ===== NOVO: Envia imagem do QR Code + mensagem com Copia e Cola =====
+        payload = qr.get('payload', 'Codigo nao disponivel')
+        imagem_qr_base64 = qr.get('encodedImage')  # Asaas retorna imagem em base64
+
         mensagem = (
-            f"{descricao}\n"
-            f"Valor: R$ {valor:.2f}\n\n"
-            f"Copia e Cola:\n`{qr['payload']}`\n\n"
+            f"<b>{descricao}</b>\n"
+            f"Valor: <b>R$ {valor:.2f}</b>\n\n"
+            f"<b>Copia e Cola:</b>\n"
+            f"<code>{payload}</code>\n\n"
             f"Valido ate 30/06/2026\n\n"
             f"Apos o pagamento, seu material sera liberado automaticamente!"
         )
 
-        await query.edit_message_text(mensagem, parse_mode="Markdown")
+        # Se tiver imagem base64 do QR Code, envia como foto
+        if imagem_qr_base64:
+            try:
+                imagem_bytes = base64.b64decode(imagem_qr_base64)
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=imagem_bytes,
+                    caption=mensagem,
+                    parse_mode="HTML"
+                )
+                # Apaga a mensagem "Gerando cobranca PIX..."
+                await query.delete_message()
+            except Exception as e:
+                print(f"[ERRO] Ao enviar imagem do QR: {e}")
+                # Fallback: envia so texto
+                await query.edit_message_text(mensagem, parse_mode="HTML")
+        else:
+            # Sem imagem, envia so texto
+            await query.edit_message_text(mensagem, parse_mode="HTML")
 
     except Exception as e:
         await query.edit_message_text(f"Erro: {str(e)}")
@@ -345,7 +382,6 @@ def run_telegram():
     application.run_polling()
 
 if __name__ == "__main__":
-    # ===== CORRECAO CRITICA: Inicializa o banco de dados =====
     init_db()
 
     flask_thread = threading.Thread(target=run_flask)
