@@ -45,7 +45,29 @@ def init_db():
     conn.commit()
     conn.close()
 
-init_db()
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    
+    # Cria a tabela se não existir
+    c.execute('''CREATE TABLE IF NOT EXISTS pagamentos
+                 (payment_id TEXT PRIMARY KEY, chat_id TEXT, status TEXT, 
+                  valor REAL, token TEXT, produto TEXT, tipo TEXT,
+                  criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+    
+    # Verifica se as colunas novas existem
+    c.execute("PRAGMA table_info(pagamentos)")
+    colunas = [col[1] for col in c.fetchall()]
+    
+    # Adiciona colunas se não existirem
+    if 'produto' not in colunas:
+        c.execute("ALTER TABLE pagamentos ADD COLUMN produto TEXT")
+    
+    if 'tipo' not in colunas:
+        c.execute("ALTER TABLE pagamentos ADD COLUMN tipo TEXT")
+    
+    conn.commit()
+    conn.close()
 
 # ============ MENU INICIAL ============
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
