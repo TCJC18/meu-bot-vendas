@@ -265,7 +265,7 @@ async def gerar_pix(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Valor: <b>R$ {valor:.2f}</b>\n\n"
             f"<b>Copia e Cola:</b>\n"
             f"<code>{payload}</code>\n\n"
-            f"Valido ate 30/06/2026\n\n"
+            f"Valido ate 01/07/2026\n\n"
             f"Apos o pagamento, seu material sera liberado automaticamente!"
         )
 
